@@ -1,5 +1,6 @@
 from .base_pulse import BasePulseGenerator
 import torch
+import numpy as np
 
 class CommPulseGenerator(BasePulseGenerator):
     def TDMA_pulse(self, l, k, K):
@@ -28,11 +29,12 @@ class CommPulseGenerator(BasePulseGenerator):
         Returns:
         - torch.Tensor: Generated CDMA pulse.
         """
+        
         d = self._to_tensor(d)
         pulse = torch.zeros_like(self.t).to(self.device)
         I = len(d)
-        for i in range(I):
-            pulse += d[i] * (torch.heaviside(self.t - (l + (i - 1) / I) * self.Tb, torch.tensor([1.0], device=self.device)) 
+        for i in range(1, I+1):
+            pulse += d[i-1] * (torch.heaviside(self.t - (l + (i - 1) / I) * self.Tb, torch.tensor([1.0], device=self.device)) 
                              - torch.heaviside(self.t - (l + i / I) * self.Tb, torch.tensor([1.0], device=self.device)))
         return pulse
 
