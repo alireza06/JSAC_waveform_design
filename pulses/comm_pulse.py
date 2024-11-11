@@ -15,8 +15,9 @@ class CommPulseGenerator(BasePulseGenerator):
         Returns:
         - torch.Tensor: Generated TDMA pulse.
         """
-        return (torch.heaviside(self.t - (l + (k - 1) / K) * self.Tb, torch.tensor([1.0], device=self.device)) 
+        pulse = (torch.heaviside(self.t - (l + (k - 1) / K) * self.Tb, torch.tensor([1.0], device=self.device)) 
                 - torch.heaviside(self.t - (l + k / K) * self.Tb, torch.tensor([0.0], device=self.device)))
+        return pulse.to(torch.complex64)
 
     def CDMA_pulse(self, l, d):
         """
@@ -36,7 +37,7 @@ class CommPulseGenerator(BasePulseGenerator):
         for i in range(1, I+1):
             pulse += d[i-1] * (torch.heaviside(self.t - (l + (i - 1) / I) * self.Tb, torch.tensor([1.0], device=self.device)) 
                              - torch.heaviside(self.t - (l + i / I) * self.Tb, torch.tensor([1.0], device=self.device)))
-        return pulse
+        return pulse.to(torch.complex64)
 
     def OFDMA_pulse(self, l, k):
         """

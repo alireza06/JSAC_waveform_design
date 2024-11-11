@@ -24,7 +24,8 @@ class RadarPulseGenerator(BasePulseGenerator):
         Returns:
         - torch.Tensor: Generated Gaussian pulse.
         """
-        return torch.exp(-1 * B / self.T * ((self.t - self.T / 2) ** 2))
+        a = torch.exp(-1 * B / self.T * ((self.t - self.T / 2) ** 2))
+        return a.to(torch.complex64)
 
     def Barker_pulse(self, b):
         """
@@ -42,4 +43,4 @@ class RadarPulseGenerator(BasePulseGenerator):
         for m in range(M):
             pulse += b[m] * (torch.heaviside(self.t - m * self.T / M, torch.tensor([0.5], device=self.device)) 
                              - torch.heaviside(self.t - m * self.T / M - self.T / M, torch.tensor([0.5], device=self.device)))
-        return pulse
+        return pulse.to(torch.complex64)
