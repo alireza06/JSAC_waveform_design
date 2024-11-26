@@ -12,7 +12,7 @@ class RadarPulseGenerator(BasePulseGenerator):
         Returns:
         - torch.Tensor: Generated LFM pulse.
         """
-        return torch.exp(-1j * torch.pi * B / self.T * (self.t ** 2))
+        return torch.exp(1j * torch.pi * B / self.T * (self.t ** 2))
 
     def Gaussian_pulse(self, B):
         """
