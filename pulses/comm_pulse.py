@@ -2,6 +2,29 @@ from .base_pulse import BasePulseGenerator
 import torch
 import numpy as np
 
+def generate_walsh_matrix(order):
+
+    def hadamard_matrix(order):
+        # Recursive method to generate Hadamard matrix of given order
+        if order == 1:
+            return np.array([[1]])
+        else:
+            h = hadamard_matrix(order // 2)
+            return np.block([[h, h], [h, -h]])
+    
+    # Order of Walsh matrix must be a power of 2
+    order = 2 ** int(np.ceil(np.log2(order)))
+    
+    # Initialize Walsh matrix with Hadamard matrix
+    walsh_matrix = hadamard_matrix(order)
+    
+    # Convert -1s in Hadamard matrix to 0s for Walsh code representation
+    walsh_matrix[walsh_matrix == +1] = 0
+    walsh_matrix[walsh_matrix == -1] = 1
+    
+    return walsh_matrix
+
+
 class CommPulseGenerator(BasePulseGenerator):
     def TDMA_pulse(self, l, k, K):
         """
