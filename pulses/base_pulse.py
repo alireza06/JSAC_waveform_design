@@ -24,6 +24,20 @@ class BasePulseGenerator:
             t = torch.from_numpy(t).to(self.device)
         return t
     
-    def cross_correlation(self, base_signal, rx_signal , tau):
+    def make_delay(self, signal, delay):
+        return torch.roll(signal, shifts=int(delay / self.dt))
+    
+    def cross_correlation(self, base_signal, rx_signal):
+        X = torch.fft.fft(base_signal)
+        Y = torch.fft.fft(rx_signal)
+        corr = torch.fft.ifft(Y * torch.conj(X))
+        return torch.abs(corr[:int(len(corr)/2)])*self.dt
+    
+    def cross_correlation_tau(self, base_signal, rx_signal , tau):
         shifted_signal = torch.roll(base_signal, shifts=int(tau / self.dt))
-        return torch.abs(torch.sum(rx_signal*shifted_signal)*self.dt)
+        return torch.abs(torch.sum(rx_signal*torch.conj(shifted_signal))*self.dt)
+        # xcorr_rx = lambda tau : myRadarPulses.cross_correlation2(x, y, tau)
+
+        # data = torch.zeros_like(delays)
+        # for idx, d in tqdm(enumerate(delays)):
+        #     data[idx] = xcorr_rx1(d)

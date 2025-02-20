@@ -1,5 +1,7 @@
 from .base_pulse import BasePulseGenerator
 import torch
+import numpy as np
+from tqdm import tqdm
 
 
 class RadarPulseGenerator(BasePulseGenerator):
@@ -72,3 +74,15 @@ class RadarPulseGenerator(BasePulseGenerator):
                     ambiguity[i, j] = torch.sum(product)*self.dt
 
             return torch.abs(ambiguity)
+    
+    def translate_distance(self, xcorr, wave_speed):
+         return self.t[torch.argmax(xcorr)] * wave_speed / 2
+    
+    def montecarlo_estimation(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
+        tau = 2 * distance / wave_speed
+        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, tau)
+        data = torch.zeros(montecarlo_number)
+        for i in tqdm(range(montecarlo_number)):
+            xcorr = self.cross_correlation(radar_signal, pure_rx_signal + np.sqrt(sigma2)*torch.randn(len(radar_signal), device=self.device))
+            data[i] = self.translate_distance(xcorr, wave_speed)
+        return data
