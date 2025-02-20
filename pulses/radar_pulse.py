@@ -1,6 +1,7 @@
 from .base_pulse import BasePulseGenerator
 import torch
 
+
 class RadarPulseGenerator(BasePulseGenerator):
     def LFM_pulse(self, B):
         """
@@ -44,3 +45,30 @@ class RadarPulseGenerator(BasePulseGenerator):
             pulse += b[m] * (torch.heaviside(self.t - m * self.T / M, torch.tensor([0.5], device=self.device)) 
                              - torch.heaviside(self.t - m * self.T / M - self.T / M, torch.tensor([0.5], device=self.device)))
         return pulse.to(torch.complex64)
+
+    def compute_ambiguity_function(self, s_t, delays, doppler_shifts):
+            """
+            Compute the ambiguity function for a given signal.
+
+            Parameters:
+            - s_t (torch.Tensor): Input signal s(t).
+            - delays (torch.Tensor): Array of time delays (tau).
+            - doppler_shifts (torch.Tensor): Array of Doppler shifts (f_d).
+
+            Returns:
+            - torch.Tensor: 2D ambiguity function values.
+            """
+            ambiguity = torch.zeros((len(doppler_shifts), len(delays)), dtype=torch.complex64, device=self.device)
+            s_t_star = torch.conj(s_t)
+
+            for i, f_d in enumerate(doppler_shifts):
+                # Multiply by the Doppler shift term
+                doppler_term = torch.exp(1j * 2 * torch.pi * f_d * self.t)
+                for j, tau in enumerate(delays):
+                    # Shift the signal by tau
+                    shifted_signal = torch.roll(s_t_star, shifts=int(tau / self.dt))
+                    # Compute the integral
+                    product = s_t * shifted_signal * doppler_term
+                    ambiguity[i, j] = torch.sum(product)*self.dt
+
+            return torch.abs(ambiguity)

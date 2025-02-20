@@ -16,6 +16,7 @@ class BasePulseGenerator:
         self.t = self._to_tensor(t)
         self.Tb = Tb
         self.T = T
+        self.dt = t[1] - t[0]
 
     def _to_tensor(self, t):
         """Convert NumPy array to PyTorch tensor if needed."""
