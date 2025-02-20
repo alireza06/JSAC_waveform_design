@@ -23,3 +23,7 @@ class BasePulseGenerator:
         if isinstance(t, np.ndarray):
             t = torch.from_numpy(t).to(self.device)
         return t
+    
+    def cross_correlation(self, base_signal, rx_signal , tau):
+        shifted_signal = torch.roll(base_signal, shifts=int(tau / self.dt))
+        return torch.abs(torch.sum(rx_signal*shifted_signal)*self.dt)
