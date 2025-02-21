@@ -81,8 +81,14 @@ class RadarPulseGenerator(BasePulseGenerator):
     def montecarlo_estimation(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
         tau = 2 * distance / wave_speed
         pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, tau)
-        data = torch.zeros(montecarlo_number)
+        dis = torch.zeros(montecarlo_number)
+        tau = torch.zeros(montecarlo_number)
         for i in tqdm(range(montecarlo_number)):
-            xcorr = self.cross_correlation(radar_signal, pure_rx_signal + np.sqrt(sigma2)*torch.randn(len(radar_signal), device=self.device))
-            data[i] = self.translate_distance(xcorr, wave_speed)
-        return data
+            noise = torch.sqrt(torch.tensor(sigma2)/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+            xcorr = self.cross_correlation(radar_signal, pure_rx_signal + noise)
+            dis[i] = self.translate_distance(xcorr, wave_speed)
+            tau[i] = self.t[torch.argmax(xcorr)]
+        return dis, tau
+    
+    def get_crlb_distance_lfm(self, sigma2, channel_gain, wave_speed, B):
+        return 3 * wave_speed**2 * sigma2 / 32 / channel_gain**4 / B**2 / self.T * self.dt / 10
