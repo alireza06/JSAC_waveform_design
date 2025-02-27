@@ -78,17 +78,30 @@ class RadarPulseGenerator(BasePulseGenerator):
     def translate_distance(self, xcorr, wave_speed):
          return self.t[torch.argmax(xcorr)] * wave_speed / 2
     
-    def montecarlo_estimation(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
-        tau = 2 * distance / wave_speed
-        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, tau)
+    def montecarlo_estimation_with_abs(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
+        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, 2 * distance / wave_speed)
         dis = torch.zeros(montecarlo_number)
         tau = torch.zeros(montecarlo_number)
         for i in tqdm(range(montecarlo_number)):
             noise = torch.sqrt(torch.tensor(sigma2)/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
-            xcorr = self.cross_correlation(radar_signal, pure_rx_signal + noise)
+            xcorr = torch.abs(self.cross_correlation(radar_signal, pure_rx_signal + noise))
             dis[i] = self.translate_distance(xcorr, wave_speed)
             tau[i] = self.t[torch.argmax(xcorr)]
         return dis, tau
     
-    def get_crlb_distance_lfm(self, sigma2, channel_gain, wave_speed, B):
-        return 3 * wave_speed**2 * sigma2 / 32 / channel_gain**4 / B**2 / self.T * self.dt / 10
+    def montecarlo_estimation_with_real(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
+        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, 2 * distance / wave_speed)
+        dis = torch.zeros(montecarlo_number)
+        tau = torch.zeros(montecarlo_number)
+        for i in tqdm(range(montecarlo_number)):
+            noise = torch.sqrt(torch.tensor(sigma2)/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+            xcorr = torch.real(self.cross_correlation(radar_signal, pure_rx_signal + noise))
+            dis[i] = self.translate_distance(xcorr, wave_speed)
+            tau[i] = self.t[torch.argmax(xcorr)]
+        return dis, tau
+    
+    def LFM_delayCRLB_with_real(self, B, T, sigma2, received_signal_amp):
+        return 3 / 2 / np.pi**2 / B**2 / T * sigma2 * self.dt / received_signal_amp**2 / 4
+    
+    def LFM_delayCRLB_with_abs(self, B, T, sigma2, received_signal_amp):
+        return 3 / 2 / np.pi**2 / B**2 / T * sigma2 * self.dt / received_signal_amp**2
