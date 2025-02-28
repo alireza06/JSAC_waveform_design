@@ -58,3 +58,49 @@ class BasePulseGenerator:
         ambiguity = torch.fft.fftshift(torch.fft.fft(product, dim=1), dim=1)
         self.doppler_bins = torch.fft.fftshift(torch.fft.fftfreq(N, d=self.dt)).to(self.device)
         return ambiguity
+
+
+    def compute_Teff(self, signal):
+        """
+        Compute the effective time duration T_eff for a signal s(t).
+        
+        Parameters:
+        signal : 1D numpy array containing s(t).
+        
+        Returns:
+        T_eff : Effective time duration in seconds.
+        """
+        energy = torch.sum(torch.abs(signal)**2) * self.dt
+        T2 = torch.sum(self.t**2 * torch.abs(signal)**2) * self.dt / energy
+        return torch.sqrt(T2)
+    
+    def compute_Beff(self, signal):
+        """
+        Compute the effective bandwidth B_eff for a signal s(t).
+        The Fourier transform S(ω) is computed numerically.
+        
+        Parameters:
+        signal : 1D numpy array containing s(t).
+        
+        Returns:
+        B_eff : Effective bandwidth in Hertz.
+        """
+        
+        # Compute Fourier Transform. Using fftshift to center the zero frequency.
+        S = torch.fft.fftshift(torch.fft.fft(torch.fft.ifftshift(signal)))
+        
+        # Frequency axis in Hz:
+        freq = torch.fft.fftshift(torch.fft.fftfreq(len(self.t), d=self.dt)).to(self.device)
+        # Convert to angular frequency (rad/s)
+        omega = 2 * np.pi * freq
+        domega = omega[1] - omega[0]
+        
+        # Energy in frequency domain (using Parseval's theorem)
+        energy_freq = torch.sum(torch.abs(S)**2) * domega
+        # Second moment of the frequency distribution
+        omega2 = torch.sum(omega**2 * torch.abs(S)**2) * domega / energy_freq
+        Omega_eff = torch.sqrt(omega2)
+        
+        # Convert angular frequency spread to effective bandwidth in Hz
+        B_eff = Omega_eff / (2 * np.pi)
+        return B_eff

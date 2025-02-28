@@ -105,3 +105,29 @@ class RadarPulseGenerator(BasePulseGenerator):
     
     def LFM_delayCRLB_with_abs(self, B, T, sigma2, received_signal_amp):
         return 3 / 2 / np.pi**2 / B**2 / T * sigma2 * self.dt / received_signal_amp**2
+    
+    def crlb_delay(self, snr, B_eff):
+        """
+        Compute the CRLB for time delay estimation.
+        
+        Parameters:
+        snr   : Signal-to-noise ratio (linear scale)
+        B_eff : Effective bandwidth in Hz.
+        
+        Returns:
+        CRLB for delay (variance in seconds^2)
+        """
+        return 1 / (8 * np.pi**2 * snr * B_eff**2)
+
+    def crlb_doppler(self, snr, T_eff):
+        """
+        Compute the CRLB for Doppler (frequency) estimation.
+        
+        Parameters:
+        snr   : Signal-to-noise ratio (linear scale)
+        T_eff : Effective time duration in seconds.
+        
+        Returns:
+        CRLB for Doppler (variance in (Hz)^2)
+        """
+        return 1 / (8 * np.pi**2 * snr * T_eff**2)
