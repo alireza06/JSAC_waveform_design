@@ -41,3 +41,20 @@ class BasePulseGenerator:
         # data = torch.zeros_like(delays)
         # for idx, d in tqdm(enumerate(delays)):
         #     data[idx] = xcorr_rx1(d)
+
+    # Fast Ambiguity Function via vectorization
+    def fast_ambiguity(self, rx_signal, base_signal):
+        N = rx_signal.shape[0]
+        max_delay_samples = N // 2  # Maximum delay in samples
+        delays = torch.arange(-max_delay_samples, max_delay_samples + 1, device=self.device)
+        # Create shifted versions of s for all delays (vectorized)
+        idx = (torch.arange(N, device=self.device)[None, :] - delays[:, None]) % N
+        base_signal_shifted = base_signal[idx]  # Shape: (num_delays, N)
+        
+        # Compute r(t) * s^*(t - τ) for all τ
+        product = rx_signal[None, :] * base_signal_shifted.conj()  # Element-wise multiply
+        
+        # FFT along time axis to get Doppler dimension
+        ambiguity = torch.fft.fftshift(torch.fft.fft(product, dim=1), dim=1)
+        self.doppler_bins = torch.fft.fftshift(torch.fft.fftfreq(N, d=self.dt)).to(self.device)
+        return ambiguity
