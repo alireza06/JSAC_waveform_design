@@ -131,3 +131,28 @@ class RadarPulseGenerator(BasePulseGenerator):
         CRLB for Doppler (variance in (Hz)^2)
         """
         return 1 / (8 * np.pi**2 * snr * T_eff**2)
+
+    def compute_I_tautau(self, s: torch.Tensor, 
+                        A: complex or float, 
+                        sigma_squared: float) -> float:
+        """
+        Compute I_tautau (Fisher Information for time delay τ) for a discrete signal s[n].
+
+        Args:
+            s (torch.Tensor): 1D tensor of shape [N], representing the discrete signal.
+            A (complex/float): Complex amplitude of the received signal.
+            sigma_squared (float): Noise variance (σ²).
+            dt (float): Sampling interval (seconds).
+
+        Returns:
+            float: I_tautau value.
+        """
+        # Compute gradient (derivative) of s with respect to time
+        s_prime = torch.gradient(s, spacing=self.dt)[0]  # s'[n] ≈ ds/dτ
+        
+        # Sum of squared magnitudes of the derivative, scaled by Δt
+        sum_term = torch.sum(torch.abs(s_prime)**2) * self.dt
+        
+        # Fisher Information for τ
+        I_tautau = (2 * torch.abs(torch.tensor(A))**2 / sigma_squared) * sum_term
+        return I_tautau.item()
