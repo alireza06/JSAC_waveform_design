@@ -63,7 +63,7 @@ class RadarPulseGenerator(BasePulseGenerator):
             ambiguity = torch.zeros((len(doppler_shifts), len(delays)), dtype=torch.complex64, device=self.device)
             s_t_star = torch.conj(s_t)
 
-            for i, f_d in enumerate(doppler_shifts):
+            for i, f_d in tqdm(enumerate(doppler_shifts)):
                 # Multiply by the Doppler shift term
                 doppler_term = torch.exp(1j * 2 * torch.pi * f_d * self.t)
                 for j, tau in enumerate(delays):
