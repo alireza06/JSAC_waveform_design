@@ -1,0 +1,7 @@
+numpy
+torch
+matplotlib
+deap
+tqdm
+jupyterlab
+jupytext
