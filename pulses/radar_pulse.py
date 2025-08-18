@@ -76,14 +76,14 @@ class RadarPulseGenerator(BasePulseGenerator):
             return torch.abs(ambiguity)
     
     def translate_distance(self, xcorr, wave_speed):
-         return self.t[torch.argmax(xcorr)] * wave_speed / 2
+         return (self.t[torch.argmax(xcorr)]-self.t[-1]/2) * wave_speed / 2
     
     def montecarlo_estimation_with_abs(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
         pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, 2 * distance / wave_speed)
         dis = torch.zeros(montecarlo_number)
         tau = torch.zeros(montecarlo_number)
         for i in tqdm(range(montecarlo_number)):
-            noise = torch.sqrt(torch.tensor(sigma2)/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+            noise = np.sqrt(sigma2/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
             xcorr = torch.abs(self.cross_correlation(radar_signal, pure_rx_signal + noise))
             dis[i] = self.translate_distance(xcorr, wave_speed)
             tau[i] = self.t[torch.argmax(xcorr)]
@@ -94,11 +94,29 @@ class RadarPulseGenerator(BasePulseGenerator):
         dis = torch.zeros(montecarlo_number)
         tau = torch.zeros(montecarlo_number)
         for i in tqdm(range(montecarlo_number)):
-            noise = torch.sqrt(torch.tensor(sigma2)/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+            noise = np.sqrt(sigma2/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
             xcorr = torch.real(self.cross_correlation(radar_signal, pure_rx_signal + noise))
             dis[i] = self.translate_distance(xcorr, wave_speed)
             tau[i] = self.t[torch.argmax(xcorr)]
         return dis, tau
+    
+    def montecarlo_estimation_doppler_delay(self, radar_signal, sigma2, channel_gain, montecarlo_number, delay, doppler):
+        doppler_shifts = torch.linspace(-2000, 2000, 4001, device=self.device) # Search from -10 kHz to 10 kHz
+        doppler_exp = torch.exp(1j * 2 * np.pi * doppler_shifts[:, torch.newaxis] * self.t[torch.newaxis, :])
+        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay_doppler(radar_signal, delay, doppler)
+        est_tau = torch.zeros(montecarlo_number)
+        est_doppler = torch.zeros(montecarlo_number)
+        radar_signal_dopplers = radar_signal[torch.newaxis, :] * doppler_exp
+        for i in tqdm(range(montecarlo_number)):
+            noise = np.sqrt(sigma2/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+            R = torch.fft.fft(pure_rx_signal + noise)
+            S = torch.fft.fft(radar_signal_dopplers, dim=1)
+            corr = torch.fft.ifft(R[torch.newaxis, :] * torch.conj(S), dim=1)
+            XCORR = torch.real(torch.fft.fftshift(corr, dim=1))*self.dt
+            arg_max_est = (XCORR==torch.max(XCORR)).nonzero()[0]
+            est_doppler[i] = doppler_shifts[arg_max_est[0]]
+            est_tau[i] = self.t[arg_max_est[1]]-self.t[-1]/2
+        return est_tau, est_doppler
     
     def LFM_delayCRLB_with_real(self, B, T, sigma2, received_signal_amp):
         return 3 / 2 / np.pi**2 / B**2 / T * sigma2 * self.dt / received_signal_amp**2 / 4

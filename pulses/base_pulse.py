@@ -25,7 +25,20 @@ class BasePulseGenerator:
         return t
     
     def make_delay(self, signal, delay):
+        # shifts=int(delay / self.dt)
+        # ret_signal = torch.zeros_like(signal)
+        # if shifts < len(signal):
+        #     ret_signal[shifts:] = signal[:len(signal) - shifts]
+        # return ret_signal
         return torch.roll(signal, shifts=int(delay / self.dt))
+    
+    def make_delay_doppler(self, signal, delay, doppler):
+        # shifts=int(delay / self.dt)
+        # ret_signal = torch.zeros_like(signal)
+        # if shifts < len(signal):
+        #     ret_signal[shifts:] = signal[:len(signal) - shifts]
+        # return ret_signal
+        return torch.roll(signal * torch.exp(1j * 2 * np.pi * doppler * self.t), shifts=int(delay / self.dt))
     
     def cross_correlation(self, base_signal, rx_signal):
         X = torch.fft.fft(base_signal)
@@ -104,3 +117,13 @@ class BasePulseGenerator:
         # Convert angular frequency spread to effective bandwidth in Hz
         B_eff = Omega_eff / (2 * np.pi)
         return B_eff
+    
+    def LOS_pathloss_db(self, distance, carrier_frequency, wave_speed):
+        FSPL_db = 20*np.log10(distance) + 20*np.log10(carrier_frequency) + 20*np.log10(4*np.pi/wave_speed)
+        return -FSPL_db
+    
+    def LOS_pathloss(self, distance, carrier_frequency, wave_speed):
+        return 10**(self.LOS_pathloss_db(distance, carrier_frequency, wave_speed)/10)
+    
+    def power_calc(self, signal):
+        return torch.sum(torch.abs(signal)**2)*self.dt
