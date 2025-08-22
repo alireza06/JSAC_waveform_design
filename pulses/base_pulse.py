@@ -25,11 +25,6 @@ class BasePulseGenerator:
         return t
     
     def make_delay(self, signal, delay):
-        # shifts=int(delay / self.dt)
-        # ret_signal = torch.zeros_like(signal)
-        # if shifts < len(signal):
-        #     ret_signal[shifts:] = signal[:len(signal) - shifts]
-        # return ret_signal
         return torch.roll(signal, shifts=int(delay / self.dt))
     
     def make_delay_doppler(self, signal, delay, doppler):

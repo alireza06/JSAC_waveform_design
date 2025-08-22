@@ -89,16 +89,37 @@ class RadarPulseGenerator(BasePulseGenerator):
             tau[i] = self.t[torch.argmax(xcorr)]
         return dis, tau
     
-    def montecarlo_estimation_with_real(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number):
+    def montecarlo_estimation_with_real(self, radar_signal, sigma2, distance, channel_gain, wave_speed, montecarlo_number, show_progress=True):
         pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal, 2 * distance / wave_speed)
         dis = torch.zeros(montecarlo_number)
         tau = torch.zeros(montecarlo_number)
-        for i in tqdm(range(montecarlo_number)):
+        for i in tqdm(range(montecarlo_number), disable=not show_progress):
             noise = np.sqrt(sigma2/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
             xcorr = torch.real(self.cross_correlation(radar_signal, pure_rx_signal + noise))
             dis[i] = self.translate_distance(xcorr, wave_speed)
             tau[i] = self.t[torch.argmax(xcorr)]
         return dis, tau
+    
+    def xcorr_under_doppler(self, radar_signal, sigma2, distance, channel_gain, wave_speed, doppler_shift):
+        pure_rx_signal = np.abs(channel_gain)**2 * self.make_delay(radar_signal*torch.exp(1j*2*np.pi*doppler_shift*self.t), 2 * distance / wave_speed)
+        noise = np.sqrt(sigma2/2) * (torch.randn_like(radar_signal) + 1j * torch.randn_like(radar_signal))
+        xcorr = self.cross_correlation(radar_signal, pure_rx_signal + noise)
+        tau = self.t[torch.argmax(torch.real(xcorr))] - self.t[-1]/2
+        return xcorr[torch.argmax(torch.real(xcorr))], tau
+
+    def montecarlo_doppler_estimation_slow_time(self, radar_signal, sigma2, initial_distance, velocity, carrier_freq, wave_speed, Q, T_PRI, MN):
+        fd = 2 * velocity / 3e8 * carrier_freq
+        tau = torch.zeros(Q, dtype=torch.float64)
+        est_velocity = torch.zeros(MN, dtype=torch.float64)
+        for mn in tqdm(range(MN)):
+            for q in range(Q):
+                new_distance = initial_distance + q * velocity * T_PRI
+                A = self.LOS_pathloss(new_distance, carrier_freq, wave_speed)
+                _, tau[q] = self.xcorr_under_doppler(radar_signal, sigma2, new_distance, np.sqrt(A), wave_speed, fd)
+
+            A_mat = torch.vstack([torch.arange(Q)*T_PRI, torch.ones(Q, dtype=torch.float64)]).T
+            est_velocity[mn], _ = torch.linalg.lstsq(A_mat, tau * wave_speed / 2)[0]
+        return est_velocity
     
     def montecarlo_estimation_doppler_delay(self, radar_signal, sigma2, channel_gain, montecarlo_number, delay, doppler):
         doppler_shifts = torch.linspace(-2000, 2000, 4001, device=self.device) # Search from -10 kHz to 10 kHz
